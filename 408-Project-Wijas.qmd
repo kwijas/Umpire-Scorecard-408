@@ -1,0 +1,267 @@
+---
+title: "408 Project"
+author: "Kellie Wijas"
+format: pdf
+editor: visual
+---
+
+```{r, include=FALSE}
+library(lmtest)
+library(readr)
+library(tidyverse)
+library(regclass)
+library(dplyr)
+library(glmnet)
+```
+
+## Data Entry
+
+```{r}
+mlb_umpire_scorecard <- read_csv("~/Downloads/mlb-umpire-scorecard.csv")
+mlb_umpire_scorecard <- mlb_umpire_scorecard[,-2] %>% 
+  filter(if_all(everything(), ~ . != "ND")) %>% 
+  mutate_at(c("home_team_runs","away_team_runs","pitches_called","incorrect_calls","correct_calls","expected_correct_calls","correct_calls_above_expected","expected_incorrect_calls",  "accuracy","expected_accuracy","accuracy_above_expected",
+ "consistency","favor_home","total_run_impact"), as.numeric)
+```
+
+## Data Vis
+
+```{r}
+mlb_umpire_scorecard %>% 
+  ggplot(aes(x=incorrect_calls))+
+  geom_bar()
+
+mlb_umpire_scorecard %>% 
+  ggplot(aes(x=correct_calls))+
+  geom_bar()
+
+mlb_umpire_scorecard %>% 
+  ggplot(aes(x=accuracy))+
+  geom_bar()
+
+mlb_umpire_scorecard %>% 
+  ggplot(aes(x=consistency))+
+  geom_bar()
+
+mlb_umpire_scorecard %>% 
+  ggplot(aes(x=correct_calls, y=expected_correct_calls))+
+  geom_point()
+
+mlb_umpire_scorecard %>% 
+  ggplot(aes(x=incorrect_calls, y=expected_incorrect_calls))+
+  geom_point()
+
+mlb_umpire_scorecard %>% 
+  ggplot(aes(x=accuracy, y=expected_accuracy))+
+  geom_point()
+
+mlb_umpire_scorecard %>% 
+  ggplot(aes(x=accuracy_above_expected, y=accuracy))+
+  geom_point()
+
+mlb_umpire_scorecard %>%
+  mutate(division = case_when(
+    home %in% c("BAL","BOS","NYY","TB","TOR") ~ "AL East",
+    home %in% c("CWS","CLE","DET","KC","MIN") ~ "AL Central",
+    home %in% c("HOU","LAA","OAK","SEA","TEX") ~ "AL West",
+    home %in% c("ATL","MIA","NYM","PHI","WSH") ~ "NL East",
+    home %in% c("CHC","CIN","MIL","PIT","STL") ~ "NL Central",
+    home %in% c("ARI","LAD","SD","SF","COL") ~ "NL West",)) %>% 
+  ggplot(aes(x=incorrect_calls, y=correct_calls, color=division))+
+  geom_point()
+
+mlb_umpire_scorecard %>%
+  mutate(division = case_when(
+    home %in% c("BAL","BOS","NYY","TB","TOR") ~ "AL East",
+    home %in% c("CWS","CLE","DET","KC","MIN") ~ "AL Central",
+    home %in% c("HOU","LAA","OAK","SEA","TEX") ~ "AL West",
+    home %in% c("ATL","MIA","NYM","PHI","WSH") ~ "NL East",
+    home %in% c("CHC","CIN","MIL","PIT","STL") ~ "NL Central",
+    home %in% c("ARI","LAD","SD","SF","COL") ~ "NL West",)) %>%
+  ggplot(aes(x=accuracy, fill=division))+
+  geom_histogram(binwidth = 1)
+
+mlb_umpire_scorecard %>% 
+  mutate(division = case_when(
+    home %in% c("BAL","BOS","NYY","TB","TOR") ~ "AL East",
+    home %in% c("CWS","CLE","DET","KC","MIN") ~ "AL Central",
+    home %in% c("HOU","LAA","OAK","SEA","TEX") ~ "AL West",
+    home %in% c("ATL","MIA","NYM","PHI","WSH") ~ "NL East",
+    home %in% c("CHC","CIN","MIL","PIT","STL") ~ "NL Central",
+    home %in% c("ARI","LAD","SD","SF","COL") ~ "NL West",)) %>% 
+  ggplot(aes(x=correct_calls, fill=division))+
+  geom_histogram(binwidth = 3)
+
+```
+
+## VIF
+
+```{r}
+modALL <- lm(accuracy~. ,data=mlb_umpire_scorecard)
+#VIF(modALL)
+```
+
+High multicolinearlity, must removed some variables.
+
+## Data Cleaning
+
+```{r}
+mlb_umpire_scorecard <- read_csv("~/Downloads/mlb-umpire-scorecard.csv")
+#removing prediction data
+mlb_umpires <- mlb_umpire_scorecard %>% 
+  dplyr::select(umpire,home,away,home_team_runs,away_team_runs,incorrect_calls,correct_calls,accuracy, consistency,favor_home,total_run_impact)
+#removing "ND"
+mlb <- mlb_umpires %>% 
+   filter(if_all(everything(), ~ . != "ND"))
+#making columns numeric
+umpires <- mlb %>% 
+  mutate_at(c("home_team_runs","away_team_runs","incorrect_calls","correct_calls","accuracy","consistency","favor_home","total_run_impact"), as.numeric)
+```
+
+-   removed "expected" variables
+
+-   removed "ND" data
+
+-   made remaining columns numeric
+
+## Influential Observations
+
+```{r}
+mod_all <- lm(accuracy ~ ., data = umpires)
+rstud <- rstudent(mod_all)
+id <- which.max(abs(rstud))
+n <- nrow(umpires)
+k <- ncol(umpires)
+alpha <- .01
+crit <- qt(1-alpha/2,n-1-k)
+abs(rstud)[id]>crit
+```
+
+```{r}
+umpires2 <- umpires[-18039,]
+mod_all_2 <- lm(accuracy~.,data=umpires2)
+rstud2 <- rstudent(mod_all_2)
+id2 <- which.max(abs(rstud2))
+n <- nrow(umpires2)
+k <- ncol(umpires2)
+alpha <- .01
+crit <- qt(1-alpha/2,n-1-k)
+abs(rstud2)[id2]>crit
+```
+
+```{r}
+umpires3 <- umpires2[-16160,]
+mod_new <- lm(accuracy~.,data=umpires3)
+rstud3 <- rstudent(mod_new)
+id3 <- which.max(abs(rstud3))
+n <- nrow(umpires3)
+k <- ncol(umpires3)
+alpha <- .01
+crit <- qt(1-alpha/2,n-1-k)
+abs(rstud3)[id3]>crit
+plot(mod_new,1)
+bptest(mod_new)
+plot(mod_new,2)
+ks.test(rstandard(mod_new),"pnorm")
+```
+
+Even though we can continue, we only want to eliminate outliers/ super influential observations
+
+```{r}
+VIF(mod_new)
+```
+
+Stop here, only wanted to remove super influential observations
+
+## Model Selection
+
+#### Polynomial Terms
+
+```{r}
+ggplot(umpires3, aes(x=umpire, y=accuracy))+
+  geom_point()
+ggplot(umpires3, aes(x=home, y=accuracy))+
+  geom_point()
+ggplot(umpires3, aes(x=away, y=accuracy))+
+  geom_point()
+ggplot(umpires3, aes(x=home_team_runs, y=accuracy))+
+  geom_point()
+ggplot(umpires3, aes(x=away_team_runs, y=accuracy))+
+  geom_point()
+ggplot(umpires3, aes(x=incorrect_calls, y=accuracy))+
+  geom_point() #CURVE
+ggplot(umpires3, aes(x=correct_calls, y=accuracy))+
+  geom_point() #CURVE
+ggplot(umpires3, aes(x=consistency, y=accuracy))+
+  geom_point()
+ggplot(umpires3, aes(x=favor_home, y=accuracy))+
+  geom_point()
+ggplot(umpires3, aes(x=total_run_impact, y=accuracy))+
+  geom_point() #CURVE
+```
+
+### Optimal Alpha
+
+```{r}
+set.seed(1234)
+response <- umpires3$accuracy
+incorrectsquared <- I(umpires3$incorrect_calls^2)
+correctsquared <- I(umpires3$correct_calls^2)
+totalrunsquared <- I(umpires3$total_run_impact^2)
+polycombined <- cbind(incorrectsquared,correctsquared,totalrunsquared)
+
+predictorss <- data.matrix(umpires3[, c("umpire","home","away", "home_team_runs", "away_team_runs","incorrect_calls","correct_calls","consistency","favor_home","total_run_impact")])
+predictor <- cbind(polycombined,predictorss)
+
+K <- 10
+foldid <- sample(rep(1:K, length.out=nrow(umpires3)))
+alpha <- seq(0,1,0.05)
+alpha_cv <- NULL
+for(a in alpha){
+  lam_a <- cv.glmnet(x=predictor,y=response,foldid=foldid, alpha=a)
+  lambda <- lam_a$lambda.min
+  alpha_cv <- c(alpha_cv,lam_a$cvm[lam_a$lambda==lambda])
+}
+plot(alpha,alpha_cv)
+a <- alpha[which.min(alpha_cv)]
+a
+```
+
+### Elastic Net with alpha
+
+```{r}
+cv_umpires_EN <- cv.glmnet(predictor,response, alpha=a,nfold=10)
+plot(cv_umpires_EN)
+#min Lambda (MSPE with 1se)
+umpireslambda_EN <- cv_umpires_EN$lambda.min
+#smallest MSPE
+lambda_MSPE_en <- cv_umpires_EN$cvm[cv_umpires_EN$lambda==umpireslambda_EN]
+#final model
+mod_best_final <- glmnet(predictor, response,alpha=a, lambda=umpireslambda_EN)
+coef(mod_best_final)
+```
+
+Model
+
+$90.404 -0.00008066umpire -0.0005388away -0.0010742hometeamruns-0.0019691awayteamruns$
+
+$-0.74939incorrectcalls+0.081016correctcalls+0.73273consistency-0.16755totalrunimpact+0.59565incorrectcalls^2$
+
+$-0.000108799correctcalls^2+0.0506838totalrunimpact^2$
+
+```{r}
+K <- 10
+foldid <- sample(rep(1:K, length.out=nrow(umpires3)))
+lam_en <- cv.glmnet(x=predictor,y=response,foldid=foldid,alpha=a)
+pred_en <- predict(lam_en,predictor, s="lambda.min")
+
+umpires3 %>% 
+  ggplot()+
+  geom_point(aes(x=1:18091,y=response))+
+  geom_point(aes(x=1:18091,y=pred_en), color="hotpink")+
+  labs(
+    title = "Prediction Plot",
+    x= "Values",
+    y= "Accuracy"
+  ) 
+```
