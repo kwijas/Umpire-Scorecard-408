@@ -22,12 +22,15 @@ Since the goal of this project is prediction, as opposed to inference, a regular
 The steps conducted were:
 1. The initial variables included were made into a matrix in order to use the glmnet function in R.
 2. Cross validation was used to find the optimal alpha value, using the variables mentioned previously as the predictors and accuracy as the response variable with 10 folds. This value was 0.9.
-   <img width="1072" height="662" alt="image" src="https://github.com/user-attachments/assets/e6acfca2-844b-41d4-b843-a5c26e16a355" />
+   <p align="center">
+   <img width="450" height="350" alt="image" src="https://github.com/user-attachments/assets/e6acfca2-844b-41d4-b843-a5c26e16a355" />
+</p>
+4.  The alpha value found in the previous step was used in Elastic Net regression to find the optimal lambda value that minimizes the mean squared prediction error and adds the standard error estimate in order to choose a more regularized model. The optimal lambda value is around 0 and contains a model with 11 out of the original 13 variables included.
 
-4. The alpha value found in the previous step was used in Elastic Net regression to find the optimal lambda value that minimizes the mean squared prediction error and adds the standard error estimate in order to choose a more regularized model. The optimal lambda value is around 0 and contains a model with 11 out of the original 13 variables included.
-   <img width="1072" height="662" alt="image" src="https://github.com/user-attachments/assets/3302ce06-957c-4776-ba17-6ac1e0f32c90" />
-
-6. The coefficients were extracted from a model using that lambda value and the prediction values were found then plotted.
+<p align="center">
+   <img width="450" height="350" alt="image" src="https://github.com/user-attachments/assets/3302ce06-957c-4776-ba17-6ac1e0f32c90" />
+</p>
+5. The coefficients were extracted from a model using that lambda value and the prediction values were found then plotted.
 
 ## Conclusions
 
